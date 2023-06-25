@@ -1,87 +1,133 @@
-import os
 import time
+from typing import List
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException
 
 
 class BankingSession:
+    """
+    Represents a scraping session for a bank user.
+
+    Attributes:
+        driver (webdriver.Chrome): Chrome WebDriver instance for browser automation.
+
+    Methods:
+        __init__(self, bank, headless=True, delay=10): Initializes a BankingSession instance.
+        __wait(self): Delays for page loads.
+        close(self): Closes the WebDriver instance.
+        login(self): Logs in to the bank account and lands on the account overview page.
+        scrape_accounts(self): Scrapes the account overview page to create account objects.
+        scrape_account(self, account): Scrapes a given account page to create account objects for the transactions.
+    """
+
+    driver: webdriver.Chrome
+
     def __init__(self, bank, headless=True, delay=10):
-        self.bank = bank
-        self.delay = delay
+        """
+        Args:
+            bank: Bank object representing the bank.
+            headless (bool, optional): Whether to run the browser in headless mode. Defaults to True.
+            delay (int, optional): Delay in seconds for page loads. Defaults to 10.
+
+        """
+        self.__bank = bank
+        self.__delay = delay
         options = webdriver.ChromeOptions()
         options.headless = headless
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--headless")
+        if headless:
+            options.add_argument("--headless")
         options.add_argument("--disable-gpu")
         options.add_argument(
             "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
         )
-        self.driver = webdriver.Chrome(options=options)
+        self.__driver = webdriver.Chrome(options=options)
 
-    def wait(self):
-        time.sleep(self.delay)
+    def __wait(self) -> None:
+        """
+        Delay for page loads.
+        """
+        time.sleep(self.__delay)
 
-    def close(self):
-        self.driver.close()
+    def close(self) -> None:
+        """
+        Closes the WebDriver instance.
+        """
+        self.__driver.close()
 
-    def login(self):
-        self.driver.get(self.bank.login_url)
+    def login(self) -> None:
+        """
+        Log in to bank account. Land on account overview page.
+        """
+        schema = self.__bank.get_schema()
+        login = schema.login_schema
+        two_factor = schema.two_factor_schema
 
-        self.wait()
-        self.driver.find_element(By.ID, "enterID-input").send_keys(self.bank.username)
-        self.driver.find_element(By.ID, "tlpvt-passcode-input").send_keys(
-            self.bank.password
-        )
-        self.driver.find_element(By.NAME, "enter-online-id-submit").click()
+        self.__driver.get(login.login_url)
 
-        if (
-            self.driver.current_url
-            == "https://secure.bankofamerica.com/login/sign-in/signOnSuccessRedirect.go"
-        ):
-            self.driver.find_element(By.ID, "btnARContinue").click()
-            print("2-Factor Auth required. Input code:")
-            self.wait()
-            self.driver.find_element(By.CLASS_NAME, "authcode").send_keys(input())
-            self.driver.find_element(By.ID, "continue-auth-number").click()
+        self.__wait()
+        login.user_field.send_keys(self.__driver, self.__bank.get_username())
+        login.pass_field.send_keys(self.__driver, self.__bank.get_password())
+        login.submit.click(self.__driver)
 
-    def clear_modal(self):
-        close_buttons = self.driver.find_elements(
-            By.ID, "sasi-overlay-module-modalClose"
-        )
-        if len(close_buttons) > 0:
-            self.driver.find_element(By.ID, "sasi-overlay-module-modalClose").click()
+        if two_factor:
+            if self.__driver.current_url == two_factor.tf_factor_url:
+                two_factor.tf_continue.click(self.__driver)
+                print("2-Factor Auth required. Input code:")
+                self.__wait()
+                two_factor.tf_pass_field.send_keys(self.__driver, input())
+                two_factor.tf_submit.click(self.__driver)
 
-    def get_accounts(self):
-        soup = BeautifulSoup(self.driver.page_source, "html.parser")
-        account_items = soup.find_all("div", {"class": "AccountItem"})
+        print("Login Successful.")
+
+    def scrape_accounts(self) -> List:
+        """
+        Scrapes the account overview page to create account objects.
+
+        Returns:
+            list: A list of account objects.
+        """
+
+        schema = self.__bank.get_schema().overview_schema
+        soup = BeautifulSoup(self.__driver.page_source, "html.parser")
+
+        account_items = schema.items.query(soup, find_all=True)
         for item in account_items:
-            name = item.find(
-                "span", {"class": "AccountName"}, recursive=False
-            ).getText()
+            name = schema.account_name.text(item)
             account_id = item["data-adx"]
             account_type = item["data-accounttype"]
 
-            self.bank.create_account(
+            self.__bank.create_account(
                 account_id=account_id, account_type=account_type, name=name
             )
+        return self.__bank.get_accounts()
 
-    def scrape_account(self, account):
-        self.driver.get(account.url)
-        self.wait()
-        attr = account.selectors  #
+    def scrape_account(self, account) -> List:
+        """
+        Scrapes a given account page to create account objects for the transactions.
 
-        soup = BeautifulSoup(self.driver.page_source, "html.parser")
-        table = attr.table.query(soup)
-        rows = attr.rows.query(table)
+        Args:
+            account: The account for which to scrape transactions.
+
+        Returns:
+            list: A list of transaction objects for the account.
+        """
+
+        self.__driver.get(account.url)
+        self.__wait()
+        schema = account.get_account_schema()
+
+        soup = BeautifulSoup(self.__driver.page_source, "html.parser")
+        table = schema.table.query(soup)
+        rows = schema.rows.query(table)
         for trx in rows:
             try:
-                date = attr.date.text(trx)
-                description = attr.desc.text(trx)
-                type_ = attr.type.text(trx)
-                amount = attr.amount.text(trx)
+                date = schema.date.text(trx)
+                description = schema.desc.text(trx)
+                type_ = schema.type.text(trx)
+                amount = schema.amount.text(trx)
 
                 account.create_transaction(
                     type=type_, desc=description, amt=amount, dt=date
@@ -91,7 +137,4 @@ class BankingSession:
                 # Skip header rows
                 pass
 
-    def run_through(self):
-        self.login()
-        self.clear_modal()
-        self.get_accounts()
+        return account.get_transactions()
