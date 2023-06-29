@@ -1,9 +1,9 @@
 import time
 from typing import List
+from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 
 
 class BankingSession:
@@ -24,7 +24,7 @@ class BankingSession:
 
     driver: webdriver.Chrome
 
-    def __init__(self, bank, headless=True, delay=10):
+    def __init__(self, bank, headless=True, delay=5):
         """
         Args:
             bank: Bank object representing the bank.
@@ -43,7 +43,7 @@ class BankingSession:
         options.add_argument(
             "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
         )
-        self.__driver = webdriver.Chrome(options=options)
+        self.driver = webdriver.Chrome(options=options)
 
     def __wait(self) -> None:
         """
@@ -51,34 +51,43 @@ class BankingSession:
         """
         time.sleep(self.__delay)
 
+    def __get_domain(self, url: str) -> str:
+        parsed_url = urlparse(url)
+        result = "{uri.scheme}://{uri.netloc}".format(uri=parsed_url)
+        return result
+
     def close(self) -> None:
         """
         Closes the WebDriver instance.
         """
-        self.__driver.close()
+        self.driver.close()
 
     def login(self) -> None:
         """
         Log in to bank account. Land on account overview page.
         """
-        schema = self.__bank.get_schema()
+        schema = self.__bank.schema
         login = schema.login_schema
         two_factor = schema.two_factor_schema
 
-        self.__driver.get(login.login_url)
+        self.driver.get(login.login_url)
 
         self.__wait()
-        login.user_field.send_keys(self.__driver, self.__bank.get_username())
-        login.pass_field.send_keys(self.__driver, self.__bank.get_password())
-        login.submit.click(self.__driver)
+        try:
+            login.user_field.send_keys(self.driver, self.__bank.username)
+            login.pass_field.send_keys(self.driver, self.__bank.password)
+        except TypeError as e:
+            print(f"{e}: Update youre username and password.")
+
+        login.submit.click(self.driver)
 
         if two_factor:
-            if self.__driver.current_url == two_factor.tf_factor_url:
-                two_factor.tf_continue.click(self.__driver)
+            if self.driver.current_url == two_factor.tf_factor_url:
+                two_factor.tf_continue.click(self.driver)
                 print("2-Factor Auth required. Input code:")
                 self.__wait()
-                two_factor.tf_pass_field.send_keys(self.__driver, input())
-                two_factor.tf_submit.click(self.__driver)
+                two_factor.tf_pass_field.send_keys(self.driver, input())
+                two_factor.tf_submit.click(self.driver)
 
         print("Login Successful.")
 
@@ -90,19 +99,18 @@ class BankingSession:
             list: A list of account objects.
         """
 
-        schema = self.__bank.get_schema().overview_schema
-        soup = BeautifulSoup(self.__driver.page_source, "html.parser")
+        schema = self.__bank.schema.overview_schema
+        soup = BeautifulSoup(self.driver.page_source, "html.parser")
 
-        account_items = schema.items.query(soup, find_all=True)
+        account_items = schema.items.query(soup)
         for item in account_items:
             name = schema.account_name.text(item)
-            account_id = item["data-adx"]
-            account_type = item["data-accounttype"]
+            a = schema.account_link.query(item)
 
             self.__bank.create_account(
-                account_id=account_id, account_type=account_type, name=name
+                account_link=a["href"], account_type=item["data-accounttype"], name=name
             )
-        return self.__bank.get_accounts()
+        return self.__bank.accounts
 
     def scrape_account(self, account) -> List:
         """
@@ -114,12 +122,12 @@ class BankingSession:
         Returns:
             list: A list of transaction objects for the account.
         """
-
-        self.__driver.get(account.url)
+        domain = self.__get_domain(self.driver.current_url)
+        self.driver.get(domain + account.url)
         self.__wait()
         schema = account.get_account_schema()
 
-        soup = BeautifulSoup(self.__driver.page_source, "html.parser")
+        soup = BeautifulSoup(self.driver.page_source, "html.parser")
         table = schema.table.query(soup)
         rows = schema.rows.query(table)
         for trx in rows:
@@ -137,4 +145,4 @@ class BankingSession:
                 # Skip header rows
                 pass
 
-        return account.get_transactions()
+        return account.transactions()

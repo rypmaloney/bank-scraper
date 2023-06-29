@@ -115,10 +115,12 @@ class AccountOverviewSchema:
     Attributes:
         items (Element): Element representing all account elements.
         account_name (Element): Element representing the account name.
+        account_link (Element): anchor to the account page
     """
 
     items: Element
     account_name: Element
+    account_link: Element
 
 
 @dataclass

@@ -26,8 +26,9 @@ BOA_liability = AccountSchema(
 )
 
 BOA_overview = AccountOverviewSchema(
-    Element("div", "class", "AccountItem"),
+    Element("div", "class", "AccountItem", find_all=True),
     Element("span", "class", "AccountName"),
+    Element("a"),
 )
 
 BOA_login = LoginSchema(
@@ -47,9 +48,7 @@ BOA_two_factor = TwoFactorSchema(
 BOA_schema = BankSchema(
     login_schema=BOA_login,
     two_factor_schema=BOA_two_factor,
+    overview_schema=BOA_overview,
     checking_schema=BOA_checking,
     liability_schema=BOA_liability,
 )
-# u = os.environ.get("BOA_USER")
-# p = os.environ.get("BOA_PASS")
-# bofa = Bank("Bank of America", "https://bankofamerica.com/login/", u, p)

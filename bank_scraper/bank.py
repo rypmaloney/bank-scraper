@@ -28,32 +28,40 @@ class Bank:
 
     def create_account(self, **kwargs):
         self.__accounts.append(
-            Account(self, kwargs["account_id"], kwargs["account_type"], kwargs["name"])
+            Account(
+                self, kwargs["account_link"], kwargs["account_type"], kwargs["name"]
+            )
         )
 
-    def get_accounts(self):
+    @property
+    def accounts(self):
         return self.__accounts
 
-    def get_schema(self) -> BankSchema:
+    @property
+    def schema(self) -> BankSchema:
         return self.__schema
 
-    def update_username(self, update: str):
-        self.__username = update
-
-    def get_username(self) -> str:
+    @property
+    def username(self) -> str:
         return self.__username
 
-    def update_password(self, update: str):
-        self.__password = update
+    @username.setter
+    def username(self, update: str):
+        self.__username = update
 
-    def get_password(self) -> str:
+    @property
+    def password(self) -> str:
         return self.__password
+
+    @password.setter
+    def password(self, update: str):
+        self.__password = update
 
 
 class Account:
-    def __init__(self, bank: Bank, account_id: str, account_type: str, name: str):
+    def __init__(self, bank: Bank, account_link: str, account_type: str, name: str):
         self.bank = bank
-        self.account_id = account_id
+        self.__account_link = account_link
         self.account_type = account_type
         self.name = name
         self.__transactions = []
@@ -64,17 +72,16 @@ class Account:
         )
 
     def get_account_schema(self) -> AccountSchema:
-        bank_schema = self.bank.get_schema()
+        bank_schema = self.bank.schema
         if self.account_type == "Checking":
             return bank_schema.checking_schema
         if self.account_type == "Liability":
             return bank_schema.liability_schema
 
-    def get_transactions(self) -> list[Transaction]:
+    @property
+    def transactions(self) -> list[Transaction]:
         return self.__transactions
 
     @property
     def url(self) -> str:
-        uri = "https://secure.bankofamerica.com/"
-        href = f"{uri}/myaccounts/brain/redirect.go?source=overview&target=acctDetails&adx={self.account_id}"
-        return href
+        return self.__account_link

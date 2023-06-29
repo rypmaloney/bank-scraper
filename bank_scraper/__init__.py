@@ -7,3 +7,8 @@ from .schemas import (
     BankSchema,
     AccountOverviewSchema,
 )
+
+
+from dotenv import load_dotenv
+
+load_dotenv()
