@@ -1,9 +1,9 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name="bank_scraper",
     version="1.0",
-    packages=find_packages(),
+    packages=["bank_scraper"],
     install_requires=[
         "selenium",
         "beautifulsoup4",

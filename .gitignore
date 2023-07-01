@@ -158,4 +158,4 @@ cython_debug/
 
 .DS_Store
 .flake8
-.vscode
+.vscode/

@@ -91,7 +91,7 @@ class BankingSession:
 
         print("Login Successful.")
 
-    def scrape_accounts(self) -> List:
+    def scrape_overview(self) -> List:
         """
         Scrapes the account overview page to create account objects.
 
