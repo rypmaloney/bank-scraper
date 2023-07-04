@@ -1,5 +1,5 @@
-from .bank import Bank
-from .schemas import (
+from .bank import Bank  # noqa F401
+from .schemas import (  # noqa F401
     Element,
     AccountSchema,
     LoginSchema,
@@ -7,8 +7,3 @@ from .schemas import (
     BankSchema,
     AccountOverviewSchema,
 )
-
-
-from dotenv import load_dotenv
-
-load_dotenv()

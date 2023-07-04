@@ -3,7 +3,7 @@ from typing import List
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
-from selenium import webdriver
+import undetected_chromedriver as uc
 
 
 class BankingSession:
@@ -22,9 +22,9 @@ class BankingSession:
         scrape_account(self, account): Scrapes a given account page to create account objects for the transactions.
     """
 
-    driver: webdriver.Chrome
+    driver: uc.Chrome
 
-    def __init__(self, bank, headless=True, delay=5):
+    def __init__(self, bank, headless=True, delay=3):
         """
         Args:
             bank: Bank object representing the bank.
@@ -34,16 +34,11 @@ class BankingSession:
         """
         self.__bank = bank
         self.__delay = delay
-        options = webdriver.ChromeOptions()
+
+        options = uc.ChromeOptions()
         options.headless = headless
-        options.add_argument("--window-size=1920,1080")
-        if headless:
-            options.add_argument("--headless")
-        options.add_argument("--disable-gpu")
-        options.add_argument(
-            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
-        )
-        self.driver = webdriver.Chrome(options=options)
+
+        self.driver = uc.Chrome()
 
     def __wait(self) -> None:
         """
@@ -79,7 +74,8 @@ class BankingSession:
         except TypeError as e:
             print(f"{e}: Update youre username and password.")
 
-        login.submit.click(self.driver)
+        self.__wait()
+        login.submit.send_submit(self.driver)
 
         if two_factor:
             if self.driver.current_url == two_factor.tf_factor_url:
@@ -100,16 +96,24 @@ class BankingSession:
         """
 
         schema = self.__bank.schema.overview_schema
+        self.__wait()
         soup = BeautifulSoup(self.driver.page_source, "html.parser")
+
+        if not schema:
+            print(f"There is no overview for {self.__bank.name}")
+            return False
 
         account_items = schema.items.query(soup)
         for item in account_items:
             name = schema.account_name.text(item)
             a = schema.account_link.query(item)
+            account_type = item.get("data-accounttype", "Liability")
 
             self.__bank.create_account(
-                account_link=a["href"], account_type=item["data-accounttype"], name=name
+                account_link=a["href"], account_type=account_type, name=name
             )
+
+        print(f"{len(self.__bank.accounts)} accounts found.")
         return self.__bank.accounts
 
     def scrape_account(self, account) -> List:
@@ -122,8 +126,12 @@ class BankingSession:
         Returns:
             list: A list of transaction objects for the account.
         """
-        domain = self.__get_domain(self.driver.current_url)
-        self.driver.get(domain + account.url)
+        account_url = account.url
+        if account_url[0] == "/":
+            domain = self.__get_domain(self.driver.current_url)
+            account_url = domain + account.url
+
+        self.driver.get(account_url)
         self.__wait()
         schema = account.get_account_schema()
 
@@ -145,4 +153,5 @@ class BankingSession:
                 # Skip header rows
                 pass
 
-        return account.transactions()
+        print(f"{len(account.transactions)} transactions found.")
+        return account.transactions

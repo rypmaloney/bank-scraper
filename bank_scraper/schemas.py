@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
 
@@ -81,11 +83,17 @@ class Element:
         """
 
         if self.selector == "id":
-            return driver.find_element(By.ID, self.value)
+            return WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, self.value))
+            )
         if self.selector == "name":
-            return driver.find_element(By.NAME, self.value)
+            return WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.NAME, self.value))
+            )
         if self.selector == "class":
-            return driver.find_element(By.CLASS_NAME, self.value)
+            return WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, self.value))
+            )
 
     def send_keys(self, driver, keys):
         """
@@ -104,7 +112,17 @@ class Element:
         Args:
             driver: The Selenium driver object.
         """
+
         self.find_element(driver).click()
+
+    def send_submit(self, driver):
+        """
+        Performs a return click for log in.
+
+        Args:
+            driver: The Selenium driver object.
+        """
+        self.find_element(driver).submit()
 
 
 @dataclass

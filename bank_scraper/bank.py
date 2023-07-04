@@ -1,16 +1,42 @@
-from datetime import datetime
-from .scraper import BankingSession
-from .config import BOA_schema
-from .schemas import AccountSchema, BankSchema
+from typing import List
+
+from scraper import BankingSession
+from config import BOA_schema
+from schemas import AccountSchema, BankSchema
 
 
 class Transaction:
-    def __init__(self, txn_type: str, desc: str, amount: float, date: datetime):
-        self.txn_type = txn_type
-        self.desc = desc
-        self.amount = amount
-        self.date = date
-        self.txn_id = f'{date.replace("/","")}-{amount.replace(".","")}'
+    def __init__(self, txn_type: str, desc: str, amount: str, date: str):
+        def clean_amount(amount):
+            num = amount.replace(",", "")
+            return float(num)
+
+        self.__txn_type = txn_type
+        self.__desc = desc
+        self.__amount = clean_amount(amount)
+        self.__date = date
+
+    @property
+    def txn_type(self) -> str:
+        return self.__txn_type
+
+    @property
+    def desc(self) -> str:
+        return self.__desc
+
+    @property
+    def amount(self) -> float:
+        return self.__amount
+
+    @property
+    def date(self) -> str:
+        return self.__date
+
+    @property
+    def id(self) -> str:
+        str_amount = str(self.__amount)
+        txn_id = f'{self.__date.replace("/","")}-{str_amount.replace(".","")}'
+        return txn_id
 
 
 class Bank:
@@ -75,11 +101,10 @@ class Account:
         bank_schema = self.bank.schema
         if self.account_type == "Checking":
             return bank_schema.checking_schema
-        if self.account_type == "Liability":
-            return bank_schema.liability_schema
+        return bank_schema.liability_schema
 
     @property
-    def transactions(self) -> list[Transaction]:
+    def transactions(self) -> List[Transaction]:
         return self.__transactions
 
     @property

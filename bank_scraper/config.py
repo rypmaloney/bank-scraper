@@ -1,4 +1,4 @@
-from .schemas import (
+from schemas import (
     Element,
     AccountSchema,
     LoginSchema,
@@ -51,4 +51,43 @@ BOA_schema = BankSchema(
     overview_schema=BOA_overview,
     checking_schema=BOA_checking,
     liability_schema=BOA_liability,
+)
+
+
+# Discover Setup
+Discover_login = LoginSchema(
+    "https://portal.discover.com/customersvcs/universalLogin/ac_main",
+    Element("input", "id", "userid-content"),
+    Element("input", "id", "password-content"),
+    Element("input", "id", "password-content"),
+)
+
+Discover_two_factor = TwoFactorSchema(
+    "https://card.discover.com/cardmembersvcs/strongauth/app/sa_main",
+    Element("input", "value", "Continue"),
+    Element("input", "id", "codeEntry"),
+    Element("input", "value", "Submit"),
+)
+
+Discover_overview = AccountOverviewSchema(
+    Element("div", "class", "recent-activity-button-container", find_all=True),
+    Element("a", "data-testid", "at-allactivity-statments"),
+    Element("a", "data-testid", "at-allactivity-statments"),
+)
+
+Discover_liability = AccountSchema(
+    Element("table", selector="id", value="transactionTbl"),
+    Element("tr", find_all=True),
+    Element("td", selector="class", value="transaction-date"),
+    Element("td", selector="class", value="merchant-container"),
+    Element("td", selector="class", value="merchant-container"),
+    Element("td", selector="class", value="transaction-amount"),
+)
+
+Discover_schema = BankSchema(
+    login_schema=Discover_login,
+    two_factor_schema=Discover_two_factor,
+    overview_schema=Discover_overview,
+    checking_schema=None,
+    liability_schema=Discover_liability,
 )
